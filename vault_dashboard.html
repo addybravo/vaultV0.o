@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VAULT — Distributed Object Storage</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --vault-bg: #080b0f;
+      --vault-surface: #0d1117;
+      --vault-card: #111820;
+      --vault-card2: #141c26;
+      --vault-border: #1e2d3d;
+      --vault-border2: #243447;
+      --vault-cyan: #00d4ff;
+      --vault-cyan2: #00a8cc;
+      --vault-green: #00ff88;
+      --vault-green2: #00cc6a;
+      --vault-red: #ff3b5c;
+      --vault-red2: #cc2d47;
+      --vault-amber: #ffb020;
+      --vault-amber2: #cc8c19;
+      --vault-purple: #a855f7;
+      --vault-blue: #3b82f6;
+      --vault-text: #e2e8f0;
+      --vault-muted: #64748b;
+      --vault-dim: #334155;
+      --mono: 'JetBrains Mono', 'Courier New', monospace;
+      --sans: 'Inter', system-ui, sans-serif;
+    }
+
+    html, body {
+      background: var(--vault-bg);
+      color: var(--vault-text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--vault-bg); }
+    ::-webkit-scrollbar-thumb { background: var(--vault-border2); border-radius: 2px; }
+
+    /* Scanline overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,212,255,0.012) 2px, rgba(0,212,255,0.012) 4px);
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* Grid background */
+    .grid-bg {
+      background-image:
+        linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    /* Glowing text */
+    .glow-cyan { text-shadow: 0 0 20px rgba(0,212,255,0.8), 0 0 40px rgba(0,212,255,0.4); }
+    .glow-green { text-shadow: 0 0 20px rgba(0,255,136,0.8), 0 0 40px rgba(0,255,136,0.4); }
+    .glow-red { text-shadow: 0 0 20px rgba(255,59,92,0.8), 0 0 40px rgba(255,59,92,0.4); }
+    .glow-amber { text-shadow: 0 0 20px rgba(255,176,32,0.8), 0 0 40px rgba(255,176,32,0.4); }
+
+    /* Box glows */
+    .box-glow-cyan { box-shadow: 0 0 20px rgba(0,212,255,0.15), inset 0 0 20px rgba(0,212,255,0.05); }
+    .box-glow-green { box-shadow: 0 0 20px rgba(0,255,136,0.15), inset 0 0 20px rgba(0,255,136,0.05); }
+    .box-glow-red { box-shadow: 0 0 20px rgba(255,59,92,0.2), inset 0 0 20px rgba(255,59,92,0.05); }
+    .box-glow-amber { box-shadow: 0 0 20px rgba(255,176,32,0.15), inset 0 0 20px rgba(255,176,32,0.05); }
+
+    /* Pulse dot */
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+    .pulse-dot { animation: pulse-dot 1.5s ease-in-out infinite; }
+
+    /* Breathing glow */
+    @keyframes breathe {
+      0%, 100% { box-shadow: 0 0 10px rgba(0,212,255,0.1); }
+      50% { box-shadow: 0 0 30px rgba(0,212,255,0.3), 0 0 60px rgba(0,212,255,0.15); }
+    }
+    .breathe { animation: breathe 3s ease-in-out infinite; }
+
+    /* Data flow animation */
+    @keyframes dataflow {
+      0% { stroke-dashoffset: 100; opacity: 0.3; }
+      50% { opacity: 1; }
+      100% { stroke-dashoffset: 0; opacity: 0.3; }
+    }
+
+    /* Scan line */
+    @keyframes scan {
+      0% { top: -2px; }
+      100% { top: 100%; }
+    }
+
+    /* Number counter */
+    @keyframes countup { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Hero title */
+    @keyframes title-reveal {
+      from { opacity: 0; letter-spacing: 0.3em; transform: translateY(-20px); }
+      to { opacity: 1; letter-spacing: 0.05em; transform: translateY(0); }
+    }
+    .title-reveal { animation: title-reveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+    /* Mono font */
+    .mono { font-family: var(--mono); }
+
+    /* Card base */
+    .vault-card {
+      background: var(--vault-card);
+      border: 1px solid var(--vault-border);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .vault-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--vault-cyan), transparent);
+      opacity: 0.4;
+    }
+
+    /* Node card */
+    .node-card {
+      background: var(--vault-card);
+      border: 1px solid var(--vault-border);
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .node-card:hover { border-color: var(--vault-cyan2); transform: translateY(-2px); }
+    .node-card.dead { border-color: var(--vault-red2); opacity: 0.7; }
+    .node-card.dead::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(255,59,92,0.05) 4px, rgba(255,59,92,0.05) 8px);
+    }
+
+    /* Toggle switch */
+    .toggle-switch { position: relative; width: 44px; height: 24px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0;
+      background: var(--vault-dim);
+      border-radius: 24px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .slider:before {
+      content: '';
+      position: absolute;
+      width: 18px; height: 18px;
+      left: 3px; bottom: 3px;
+      background: var(--vault-muted);
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+    input:checked + .slider { background: var(--vault-green2); }
+    input:checked + .slider:before { transform: translateX(20px); background: var(--vault-bg); }
+
+    /* Progress bar */
+    .prog-bar {
+      height: 4px;
+      background: var(--vault-border2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .prog-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 1s ease;
+    }
+
+    /* Chunk cell */
+    .chunk-cell {
+      width: 10px; height: 10px;
+      border-radius: 2px;
+      transition: all 0.3s ease;
+    }
+
+    /* Log entry */
+    @keyframes log-slide {
+      from { opacity: 0; transform: translateX(-10px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .log-entry { animation: log-slide 0.3s ease forwards; }
+
+    /* Tooltip */
+    .tooltip-wrap { position: relative; }
+    .tooltip-wrap .tooltip-box {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--vault-card2);
+      border: 1px solid var(--vault-border2);
+      border-radius: 6px;
+      padding: 6px 10px;
+      white-space: nowrap;
+      font-size: 11px;
+      z-index: 100;
+      color: var(--vault-text);
+    }
+    .tooltip-wrap:hover .tooltip-box { display: block; }
+
+    /* Tab */
+    .tab-btn {
+      padding: 6px 16px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: var(--mono);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+      color: var(--vault-muted);
+      background: transparent;
+    }
+    .tab-btn.active {
+      background: rgba(0,212,255,0.1);
+      border-color: var(--vault-cyan2);
+      color: var(--vault-cyan);
+    }
+    .tab-btn:hover:not(.active) {
+      background: rgba(255,255,255,0.04);
+      color: var(--vault-text);
+    }
+
+    /* Fault drill button */
+    .drill-btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: var(--mono);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid;
+      letter-spacing: 0.05em;
+    }
+    .drill-btn-red {
+      border-color: var(--vault-red2);
+      color: var(--vault-red);
+      background: rgba(255,59,92,0.08);
+    }
+    .drill-btn-red:hover {
+      background: rgba(255,59,92,0.18);
+      box-shadow: 0 0 16px rgba(255,59,92,0.3);
+    }
+    .drill-btn-green {
+      border-color: var(--vault-green2);
+      color: var(--vault-green);
+      background: rgba(0,255,136,0.08);
+    }
+    .drill-btn-green:hover {
+      background: rgba(0,255,136,0.18);
+      box-shadow: 0 0 16px rgba(0,255,136,0.3);
+    }
+    .drill-btn-amber {
+      border-color: var(--vault-amber2);
+      color: var(--vault-amber);
+      background: rgba(255,176,32,0.08);
+    }
+    .drill-btn-amber:hover {
+      background: rgba(255,176,32,0.18);
+      box-shadow: 0 0 16px rgba(255,176,32,0.3);
+    }
+    .drill-btn-cyan {
+      border-color: var(--vault-cyan2);
+      color: var(--vault-cyan);
+      background: rgba(0,212,255,0.08);
+    }
+    .drill-btn-cyan:hover {
+      background: rgba(0,212,255,0.18);
+      box-shadow: 0 0 16px rgba(0,212,255,0.3);
+    }
+
+    /* Hero gradient */
+    .hero-gradient {
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,212,255,0.08) 0%, transparent 70%),
+                  radial-gradient(ellipse 60% 40% at 80% 50%, rgba(168,85,247,0.05) 0%, transparent 60%),
+                  var(--vault-bg);
+    }
+
+    /* Animated border */
+    @keyframes border-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Metric card hover */
+    .metric-card {
+      transition: all 0.3s ease;
+    }
+    .metric-card:hover {
+      border-color: var(--vault-cyan2);
+      transform: translateY(-2px);
+    }
+
+    /* Spark line canvas */
+    canvas { display: block; }
+
+    /* Architecture SVG */
+    .arch-line {
+      stroke-dasharray: 6 3;
+      stroke-dashoffset: 100;
+      animation: dataflow 2s linear infinite;
+    }
+
+    /* Section label */
+    .section-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--vault-cyan);
+    }
+
+    /* Invisible nav */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(8,11,15,0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--vault-border);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .hide-mobile { display: none !important; }
+      .grid-cols-4-responsive { grid-template-columns: repeat(2, 1fr) !important; }
+    }
+
+    /* Highlight */
+    .hl-cyan { color: var(--vault-cyan); }
+    .hl-green { color: var(--vault-green); }
+    .hl-red { color: var(--vault-red); }
+    .hl-amber { color: var(--vault-amber); }
+    .hl-purple { color: var(--vault-purple); }
+    .hl-muted { color: var(--vault-muted); }
+    .hl-dim { color: var(--vault-dim); }
+
+    /* Badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-family: var(--mono);
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+    .badge-green { background: rgba(0,255,136,0.1); color: var(--vault-green); border: 1px solid rgba(0,255,136,0.2); }
+    .badge-red { background: rgba(255,59,92,0.1); color: var(--vault-red); border: 1px solid rgba(255,59,92,0.2); }
+    .badge-amber { background: rgba(255,176,32,0.1); color: var(--vault-amber); border: 1px solid rgba(255,176,32,0.2); }
+    .badge-cyan { background: rgba(0,212,255,0.1); color: var(--vault-cyan); border: 1px solid rgba(0,212,255,0.2); }
+    .badge-purple { background: rgba(168,85,247,0.1); color: var(--vault-purple); border: 1px solid rgba(168,85,247,0.2); }
+  </style>
+</head>
+<body class="bg-transparent">
+
+<!-- ===== NAVBAR ===== -->
+<nav>
+  <div style="max-width:1400px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:56px;">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <!-- Logo -->
+      <div style="display:flex;align-items:center;gap:10px;">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <rect x="2" y="2" width="24" height="24" rx="4" stroke="var(--vault-cyan)" stroke-width="1.5" fill="none"/>
+          <rect x="6" y="6" width="6" height="6" rx="1" fill="var(--vault-cyan)" opacity="0.8"/>
+          <rect x="16" y="6" width="6" height="6" rx="1" fill="var(--vault-cyan)" opacity="0.5"/>
+          <rect x="6" y="16" width="6" height="6" rx="1" fill="var(--vault-cyan)" opacity="0.5"/>
+          <rect x="16" y="16" width="6" height="6" rx="1" fill="var(--vault-cyan)" opacity="0.3"/>
+          <line x1="12" y1="9" x2="16" y2="9" stroke="var(--vault-cyan)" stroke-width="0.75" opacity="0.6"/>
+          <line x1="9" y1="12" x2="9" y2="16" stroke="var(--vault-cyan)" stroke-width="0.75" opacity="0.6"/>
+          <line x1="19" y1="12" x2="19" y2="16" stroke="var(--vault-cyan)" stroke-width="0.75" opacity="0.6"/>
+          <line x1="12" y1="19" x2="16" y2="19" stroke="var(--vault-cyan)" stroke-width="0.75" opacity="0.6"/>
+        </svg>
+        <span style="font-family:var(--mono);font-size:18px;font-weight:700;letter-spacing:0.1em;color:var(--vault-text);">VAULT</span>
+      </div>
+      <span style="color:var(--vault-border2);font-size:16px;">|</span>
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:0.15em;color:var(--vault-muted);text-transform:uppercase;">Distributed Object Storage</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;" class="hide-mobile">
+      <div class="badge badge-green pulse-dot">
+        <span style="width:5px;height:5px;border-radius:50%;background:var(--vault-green);display:inline-block;"></span>
+        CLUSTER LIVE
+      </div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--vault-muted);">RF=3 · W=2 · R=1</div>
+    </div>
+  </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero-gradient grid-bg" style="padding:80px 24px 60px;text-align:center;position:relative;overflow:hidden;">
+  <!-- Radial accent -->
+  <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:600px;height:300px;background:radial-gradient(ellipse at center,rgba(0,212,255,0.12) 0%,transparent 70%);pointer-events:none;"></div>
+  <!-- Corner decorations -->
+  <div style="position:absolute;top:24px;left:24px;opacity:0.3;">
+    <div style="width:40px;height:40px;border-top:1px solid var(--vault-cyan);border-left:1px solid var(--vault-cyan);border-radius:2px 0 0 0;"></div>
+  </div>
+  <div style="position:absolute;top:24px;right:24px;opacity:0.3;">
+    <div style="width:40px;height:40px;border-top:1px solid var(--vault-cyan);border-right:1px solid var(--vault-cyan);border-radius:0 2px 0 0;"></div>
+  </div>
+  <div style="position:absolute;bottom:24px;left:24px;opacity:0.3;">
+    <div style="width:40px;height:40px;border-bottom:1px solid var(--vault-cyan);border-left:1px solid var(--vault-cyan);border-radius:0 0 0 2px;"></div>
+  </div>
+  <div style="position:absolute;bottom:24px;right:24px;opacity:0.3;">
+    <div style="width:40px;height:40px;border-bottom:1px solid var(--vault-cyan);border-right:1px solid var(--vault-cyan);border-radius:0 0 2px 0;"></div>
+  </div>
+
+  <div style="position:relative;z-index:1;max-width:900px;margin:0 auto;">
+    <div class="section-label" style="margin-bottom:20px;">// ENTERPRISE GRADE · OPEN ARCHITECTURE</div>
+    <h1 class="title-reveal glow-cyan" style="font-size:clamp(48px,8vw,96px);font-weight:900;letter-spacing:0.05em;line-height:1;color:var(--vault-cyan);margin-bottom:8px;font-family:var(--mono);">
+      VAULT
+    </h1>
+    <div style="font-family:var(--mono);font-size:clamp(14px,2vw,18px);color:var(--vault-muted);letter-spacing:0.2em;margin-bottom:32px;text-transform:uppercase;">
+      Distributed Object Storage
+    </div>
+    <p style="font-size:clamp(14px,1.5vw,18px);color:var(--vault-muted);max-width:640px;margin:0 auto 40px;line-height:1.7;">
+      Fault-tolerant, self-healing distributed storage with <span class="hl-cyan">RF=3 replication</span>, 
+      <span class="hl-green">SHA-256 integrity</span>, and <span class="hl-amber">automatic repair</span>. 
+      Built for the edge. Designed for chaos.
+    </p>
+
+    <!-- Hero metrics -->
+    <div style="display:flex;justify-content:center;gap:40px;flex-wrap:wrap;margin-bottom:40px;">
+      <div style="text-align:center;">
+        <div style="font-family:var(--mono);font-size:36px;font-weight:700;color:var(--vault-cyan);">99.99%</div>
+        <div style="font-size:11px;color:var(--vault-muted);letter-spacing:0.1em;text-transform:uppercase;">Durability</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-family:var(--mono);font-size:36px;font-weight:700;color:var(--vault-green);">&lt;5s</div>
+        <div style="font-size:11px;color:var(--vault-muted);letter-spacing:0.1em;text-transform:uppercase;">Repair SLA</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-family:var(--mono);font-size:36px;font-weight:700;color:var(--vault-amber);">RF=3</div>
+        <div style="font-size:11px;color:var(--vault-muted);letter-spacing:0.1em;text-transform:uppercase;">Replication</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-family:var(--mono);font-size:36px;font-weight:700;color:var(--vault-purple);">W=2</div>
+        <div style="font-size:11px;color:var(--vault-muted);letter-spacing:0.1em;text-transform:uppercase;">Write Quorum</div>
+      </div>
+    </div>
+
+    <!-- Architecture diagram (SVG) -->
+    <div style="position:relative;display:inline-block;background:var(--vault-card);border:1px solid var(--vault-border);border-radius:12px;padding:32px 40px;max-width:700px;width:100%;" class="box-glow-cyan">
+      <div class="section-label" style="margin-bottom:20px;text-align:left;">// ARCHITECTURE</div>
+      <svg viewBox="0 0 620 260" style="width:100%;max-width:620px;" xmlns="http://www.w3.org/2000/svg">
+        <!-- Client -->
+        <rect x="240" y="4" width="140" height="36" rx="4" fill="rgba(0,212,255,0.08)" stroke="rgba(0,212,255,0.4)" stroke-width="1"/>
+        <text x="310" y="27" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="12" fill="#00d4ff">CLIENT</text>
+
+        <!-- Arrow down -->
+        <line x1="310" y1="40" x2="310" y2="72" stroke="rgba(0,212,255,0.4)" stroke-width="1" stroke-dasharray="4 2"/>
+        <polygon points="305,68 315,68 310,74" fill="rgba(0,212,255,0.6)"/>
+
+        <!-- Gateway -->
+        <rect x="190" y="74" width="240" height="44" rx="4" fill="rgba(0,212,255,0.1)" stroke="rgba(0,212,255,0.5)" stroke-width="1.5"/>
+        <text x="310" y="92" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="12" font-weight="600" fill="#00d4ff">VAULT GATEWAY</text>
+        <text x="310" y="108" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10" fill="#64748b">Spring Boot · REST</text>
+
+        <!-- Arrow to metadata -->
+        <line x1="310" y1="118" x2="310" y2="148" stroke="rgba(0,212,255,0.3)" stroke-width="1" stroke-dasharray="4 2"/>
+        <polygon points="305,144 315,144 310,150" fill="rgba(0,212,255,0.4)"/>
+
+        <!-- Metadata -->
+        <rect x="220" y="150" width="180" height="36" rx="4" fill="rgba(168,85,247,0.08)" stroke="rgba(168,85,247,0.35)" stroke-width="1"/>
+        <text x="310" y="168" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="11" fill="#a855f7">METADATA STORE</text>
+        <text x="310" y="180" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#64748b">In-Memory · SHA-256</text>
+
+        <!-- Lines to nodes -->
+        <line x1="220" y1="186" x2="80" y2="218" stroke="rgba(0,212,255,0.25)" stroke-width="1" stroke-dasharray="4 2" class="arch-line"/>
+        <line x1="310" y1="186" x2="310" y2="218" stroke="rgba(0,212,255,0.25)" stroke-width="1" stroke-dasharray="4 2" class="arch-line"/>
+        <line x1="400" y1="186" x2="540" y2="218" stroke="rgba(0,212,255,0.25)" stroke-width="1" stroke-dasharray="4 2" class="arch-line"/>
+
+        <!-- Node 1 -->
+        <rect x="20" y="218" width="120" height="38" rx="4" fill="rgba(0,255,136,0.08)" stroke="rgba(0,255,136,0.35)" stroke-width="1"/>
+        <text x="80" y="234" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="11" font-weight="600" fill="#00ff88">NODE-1</text>
+        <text x="80" y="248" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#64748b">/data/chunks</text>
+
+        <!-- Node 2 -->
+        <rect x="250" y="218" width="120" height="38" rx="4" fill="rgba(0,255,136,0.08)" stroke="rgba(0,255,136,0.35)" stroke-width="1"/>
+        <text x="310" y="234" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="11" font-weight="600" fill="#00ff88">NODE-2</text>
+        <text x="310" y="248" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#64748b">/data/chunks</text>
+
+        <!-- Node 3 -->
+        <rect x="480" y="218" width="120" height="38" rx="4" fill="rgba(0,255,136,0.08)" stroke="rgba(0,255,136,0.35)" stroke-width="1"/>
+        <text x="540" y="234" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="11" font-weight="600" fill="#00ff88">NODE-3</text>
+        <text x="540" y="248" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#64748b">/data/chunks</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ===== MAIN CONSOLE ===== -->
+<div style="max-width:1400px;margin:0 auto;padding:0 24px 60px;">
+
+  <!-- ===== LIVE TELEMETRY CARDS ===== -->
+  <div style="margin-bottom:32px;">
+    <div class="section-label" style="margin-bottom:16px;">// LIVE CLUSTER TELEMETRY</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;" id="telemetry-grid">
+      <!-- Cards populated by JS -->
+    </div>
+  </div>
+
+  <!-- ===== NODE MATRIX + OBJECT EXPLORER ===== -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+
+    <!-- NODE MATRIX DECK -->
+    <div class="vault-card" style="padding:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div>
+          <div class="section-label">// NODE MATRIX</div>
+          <div style="font-size:11px;color:var(--vault-muted);margin-top:2px;">Kill/Revive node instances</div>
+        </div>
+        <button onclick="addNode()" style="padding:6px 12px;background:rgba(0,212,255,0.08);border:1px solid var(--vault-cyan2);border-radius:4px;color:var(--vault-cyan);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,212,255,0.18)'" onmouseout="this.style.background='rgba(0,212,255,0.08)'">
+          + ADD NODE
+        </button>
+      </div>
+      <div id="node-matrix" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+
+    <!-- OBJECT EXPLORER -->
+    <div class="vault-card" style="padding:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div>
+          <div class="section-label">// OBJECT EXPLORER</div>
+          <div style="font-size:11px;color:var(--vault-muted);margin-top:2px;">Chunk topology view</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="tab-btn active" id="tab-objects" onclick="switchTab('objects')">Objects</button>
+          <button class="tab-btn" id="tab-chunks" onclick="switchTab('chunks')">Chunks</button>
+        </div>
+      </div>
+
+      <!-- Objects view -->
+      <div id="view-objects">
+        <div id="object-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+
+      <!-- Chunks view -->
+      <div id="view-chunks" style="display:none;">
+        <div id="chunk-topology"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== FAULT DRILL ENGINE + EVENT LOG ===== -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+
+    <!-- FAULT DRILL ENGINE -->
+    <div class="vault-card" style="padding:20px;">
+      <div style="margin-bottom:16px;">
+        <div class="section-label">// SCRIPTED FAULT DRILL ENGINE</div>
+        <div style="font-size:11px;color:var(--vault-muted);margin-top:2px;">Trigger chaos scenarios · Watch repair unfold</div>
+      </div>
+
+      <!-- Scenario selector -->
+      <div style="display:flex;flex-direction:column;gap:10px;" id="drill-panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--vault-card2);border:1px solid var(--vault-border2);border-radius:6px;">
+          <div>
+            <div style="font-family:var(--mono);font-size:12px;color:var(--vault-text);font-weight:600;">NODE FAILURE</div>
+            <div style="font-size:10px;color:var(--vault-muted);margin-top:2px;">Kill a random healthy node · trigger under-replication</div>
+          </div>
+          <button class="drill-btn drill-btn-red" onclick="drillNodeFailure()">KILL NODE</button>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--vault-card2);border:1px solid var(--vault-border2);border-radius:6px;">
+          <div>
+            <div style="font-family:var(--mono);font-size:12px;color:var(--vault-text);font-weight:600;">DATA CORRUPTION</div>
+            <div style="font-size:10px;color:var(--vault-muted);margin-top:2px;">Flip bytes in a random chunk · checksum mismatch</div>
+          </div>
+          <button class="drill-btn drill-btn-amber" onclick="drillCorruption()">CORRUPT</button>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--vault-card2);border:1px solid var(--vault-border2);border-radius:6px;">
+          <div>
+            <div style="font-family:var(--mono);font-size:12px;color:var(--vault-text);font-weight:600;">AUTO REPAIR</div>
+            <div style="font-size:10px;color:var(--vault-muted);margin-top:2px;">Trigger repair controller · restore to RF=3</div>
+          </div>
+          <button class="drill-btn drill-btn-green" onclick="drillRepair()">REPAIR ALL</button>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--vault-card2);border:1px solid var(--vault-border2);border-radius:6px;">
+          <div>
+            <div style="font-family:var(--mono);font-size:12px;color:var(--vault-text);font-weight:600;">REBALANCE</div>
+            <div style="font-size:10px;color:var(--vault-muted);margin-top:2px;">Redistribute chunks to least-loaded node</div>
+          </div>
+          <button class="drill-btn drill-btn-cyan" onclick="drillRebalance()">REBALANCE</button>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--vault-card2);border:1px solid var(--vault-border2);border-radius:6px;">
+          <div>
+            <div style="font-family:var(--mono);font-size:12px;color:var(--vault-text);font-weight:600;">FULL CHAOS</div>
+            <div style="font-size:10px;color:var(--vault-muted);margin-top:2px;">Node kill + corruption + auto-repair sequence</div>
+          </div>
+          <button class="drill-btn drill-btn-red" onclick="drillChaos()" style="border-color:var(--vault-purple);color:var(--vault-purple);background:rgba(168,85,247,0.08);" onmouseover="this.style.background='rgba(168,85,247,0.18)'" onmouseout="this.style.background='rgba(168,85,247,0.08)'">CHAOS MODE</button>
+        </div>
+      </div>
+
+      <!-- Progress indicator -->
+      <div id="drill-progress" style="display:none;margin-top:16px;padding:12px;background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.15);border-radius:6px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--vault-cyan);margin-bottom:8px;" id="drill-status">Running...</div>
+        <div class="prog-bar">
+          <div class="prog-fill" id="drill-bar" style="background:linear-gradient(90deg,var(--vault-cyan),var(--vault-cyan2));width:0%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIVE EVENT LOG -->
+    <div class="vault-card" style="padding:20px;display:flex;flex-direction:column;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <div class="section-label">// LIVE EVENT LOG</div>
+          <div style="font-size:11px;color:var(--vault-muted);margin-top:2px;">Real-time cluster events</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="badge badge-green">
+            <span style="width:5px;height:5px;border-radius:50%;background:var(--vault-green);display:inline-block;" class="pulse-dot"></span>
+            LIVE
+          </div>
+          <button onclick="clearLog()" style="padding:3px 8px;background:transparent;border:1px solid var(--vault-border2);border-radius:4px;color:var(--vault-muted);font-family:var(--mono);font-size:10px;cursor:pointer;">CLEAR</button>
+        </div>
+      </div>
+
+      <!-- Log filters -->
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+        <button class="tab-btn active" onclick="toggleFilter(this,'ALL')" id="filter-ALL">ALL</button>
+        <button class="tab-btn" onclick="toggleFilter(this,'PUT')" id="filter-PUT">PUT</button>
+        <button class="tab-btn" onclick="toggleFilter(this,'GET')" id="filter-GET">GET</button>
+        <button class="tab-btn" onclick="toggleFilter(this,'REPAIR')" id="filter-REPAIR">REPAIR</button>
+        <button class="tab-btn" onclick="toggleFilter(this,'ERROR')" id="filter-ERROR">ERROR</button>
+        <button class="tab-btn" onclick="toggleFilter(this,'HEALTH')" id="filter-HEALTH">HEALTH</button>
+      </div>
+
+      <!-- Log body -->
+      <div id="event-log" style="flex:1;min-height:280px;max-height:320px;overflow-y:auto;background:rgba(0,0,0,0.3);border:1px solid var(--vault-border);border-radius:6px;padding:10px;font-family:var(--mono);font-size:11px;line-height:1.7;">
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CHUNK MATRIX VISUALIZER ===== -->
+  <div class="vault-card" style="padding:20px;margin-bottom:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div>
+        <div class="section-label">// CHUNK REPLICATION MATRIX</div>
+        <div style="font-size:11px;color:var(--vault-muted);margin-top:2px;">Per-chunk replica placement across all nodes · hover for details</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;font-size:10px;font-family:var(--mono);">
+        <div style="display:flex;align-items:center;gap:5px;"><div style="width:10px;height:10px;border-radius:2px;background:var(--vault-green);"></div><span class="hl-muted">HEALTHY</span></div>
+        <div style="display:flex;align-items:center;gap:5px;"><div style="width:10px;height:10px;border-radius:2px;background:var(--vault-red);"></div><span class="hl-muted">MISSING</span></div>
+        <div style="display:flex;align-items:center;gap:5px;"><div style="width:10px;height:10px;border-radius:2px;background:var(--vault-amber);"></div><span class="hl-muted">CORRUPT</span></div>
+        <div style="display:flex;align-items:center;gap:5px;"><div style="width:10px;height:10px;border-radius:2px;background:var(--vault-dim);"></div><span class="hl-muted">ABSENT</span></div>
+      </div>
+    </div>
+    <div id="chunk-matrix" style="overflow-x:auto;"></div>
+  </div>
+
+  <!-- ===== SPARKLINE TELEMETRY ===== -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="vault-card" style="padding:16px;">
+      <div class="section-label" style="margin-bottom:8px;">// THROUGHPUT</div>
+      <canvas id="chart-throughput" height="70"></canvas>
+    </div>
+    <div class="vault-card" style="padding:16px;">
+      <div class="section-label" style="margin-bottom:8px;">// CHUNK HEALTH</div>
+      <canvas id="chart-health" height="70"></canvas>
+    </div>
+    <div class="vault-card" style="padding:16px;">
+      <div class="section-label" style="margin-bottom:8px;">// REPAIR QUEUE</div>
+      <canvas id="chart-repair" height="70"></canvas>
+    </div>
+  </div>
+
+  <!-- ===== API REFERENCE ===== -->
+  <div class="vault-card" style="padding:20px;">
+    <div class="section-label" style="margin-bottom:16px;">// API REFERENCE</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div style="font-size:11px;color:var(--vault-muted);margin-bottom:8px;font-family:var(--mono);">GATEWAY ENDPOINTS</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(0,0,0,0.2);border-radius:4px;">
+            <span class="badge badge-green" style="min-width:36px;justify-content:center;">PUT</span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--vault-text);">/api/objects/{name}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(0,0,0,0.2);border-radius:4px;">
+            <span class="badge badge-cyan" style="min-width:36px;justify-content:center;">GET</span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--vault-text);">/api/objects/{name}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(0,0,0,0.2);border-radius:4px;">
+            <span class="badge badge-red" style="min-width:36px;justify-content:center;">DEL</span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--vault-text);">/api/objects/{name}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(0,0,0,0.2);border-radius:4px;">
+            <span class="badge badge-cyan" style="min-width:36px;justify-content:center;">GET</span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--vault-text);">/api/objects/{name}/metadata</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(0,0,0,0.2);border-radius:4px;">
+            <span class="badge badge-cyan" style="min-width:36px;justify-content:center;">GET</span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--vault-text);">/admin/cluster</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--vault-muted);margin-bottom:8px;font-family:var(--mono);">NODE INTERNAL ENDPOINTS</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(0,0,0,0.2);border-radius:4px;">
+            <span class="badge badge-green" style="min-width:36px;justify-content:center;">PUT</span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--vault-text);">/internal/chunks/{chunkId}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(0,0,0,0.2);border-radius:4px;">
+            <span class="badge badge-cyan" style="min-width:36px;justify-content:center;">GET</span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--vault-text);">/internal/chunks/{chunkId}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(0,0,0,0.2);border-radius:4px;">
+            <span class="badge badge-red" style="min-width:36px;justify-content:center;">DEL</span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--vault-text);">/internal/chunks/{chunkId}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(0,0,0,0.2);border-radius:4px;">
+            <span class="badge badge-cyan" style="min-width:36px;justify-content:center;">GET</span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--vault-text);">/internal/health</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(0,0,0,0.2);border-radius:4px;">
+            <span class="badge badge-amber" style="min-width:36px;justify-content:center;">PST</span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--vault-text);">/admin/nodes/{id}/corrupt</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== FOOTER ===== -->
+<footer style="border-top:1px solid var(--vault-border);padding:24px;text-align:center;">
+  <div style="font-family:var(--mono);font-size:10px;color:var(--vault-dim);letter-spacing:0.15em;">
+    VAULT v1.0 · DISTRIBUTED OBJECT STORAGE · RF=3 · SHA-256 · AUTO-REPAIR · JAVA 21 · SPRING BOOT · DOCKER
+  </div>
+</footer>
+
+<script>
+// ============================================================
+// VAULT DASHBOARD — SIMULATION ENGINE
+// ============================================================
+
+// ---- STATE ----
+const state = {
+  nodes: [
+    { id: 'node-1', host: 'vault-node-1', port: 8081, healthy: true, util: 62, chunks: 18, speed: 120 },
+    { id: 'node-2', host: 'vault-node-2', port: 8082, healthy: true, util: 55, chunks: 16, speed: 98 },
+    { id: 'node-3', host: 'vault-node-3', port: 8083, healthy: true, util: 48, chunks: 14, speed: 145 },
+  ],
+  objects: [
+    { id: 'obj-7f82ab', name: 'video.mp4',   size: '1.4 GB', chunks: 22, status: 'AVAILABLE' },
+    { id: 'obj-3c91de', name: 'backup.tar',  size: '820 MB', chunks: 13, status: 'AVAILABLE' },
+    { id: 'obj-a1b2c3', name: 'dataset.csv', size: '280 MB', chunks: 5,  status: 'AVAILABLE' },
+    { id: 'obj-d4e5f6', name: 'model.bin',   size: '3.2 GB', chunks: 51, status: 'AVAILABLE' },
+  ],
+  chunks: [],     // filled from objects × nodes
+  logFilter: 'ALL',
+  logEntries: [],
+  throughputHistory: [],
+  healthHistory: [],
+  repairHistory: [],
+  nextNodeId: 4,
+  drillRunning: false,
+};
+
+// Generate chunk matrix from objects × nodes
+function buildChunks() {
+  state.chunks = [];
+  state.objects.forEach(obj => {
+    for (let i = 0; i < obj.chunks; i++) {
+      const replicas = {};
+      state.nodes.forEach(n => {
+        replicas[n.id] = n.healthy ? 'healthy' : 'missing';
+      });
+      state.chunks.push({ chunkId: `${obj.id}-c${String(i).padStart(3,'0')}`, objId: obj.id, index: i, replicas });
+    }
+  });
+}
+
+// ---- TELEMETRY ----
+const telemetryDefs = [
+  { key:'nodes',          label:'TOTAL NODES',       icon:'⬡', color:'cyan',   format: s => state.nodes.length },
+  { key:'healthy',        label:'HEALTHY NODES',      icon:'◉', color:'green',  format: s => state.nodes.filter(n=>n.healthy).length },
+  { key:'objects',        label:'OBJECTS STORED',     icon:'▣', color:'cyan',   format: s => state.objects.length },
+  { key:'chunks',         label:'TOTAL CHUNKS',       icon:'◫', color:'purple', format: s => state.chunks.length },
+  { key:'replicas',       label:'TOTAL REPLICAS',     icon:'⊞', color:'cyan',   format: s => state.chunks.length * 3 },
+  { key:'underReplicated',label:'UNDER-REPLICATED',   icon:'⚠', color:'amber',  format: s => state.chunks.filter(c=>Object.values(c.replicas).filter(v=>v!=='absent'&&v!=='missing').length < 3).length },
+  { key:'corrupted',      label:'CORRUPTED',          icon:'✕', color:'red',    format: s => state.chunks.filter(c=>Object.values(c.replicas).includes('corrupt')).length },
+  { key:'repairQueue',    label:'REPAIR QUEUE',       icon:'↺', color:'green',  format: s => state.chunks.filter(c=>Object.values(c.replicas).filter(v=>v==='missing'||v==='corrupt').length>0).length },
+];
+
+function renderTelemetry() {
+  const grid = document.getElementById('telemetry-grid');
+  if (!grid.children.length) {
+    grid.innerHTML = telemetryDefs.map((t,i) => `
+      <div class="vault-card metric-card" style="padding:16px;cursor:default;" id="tele-${t.key}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:18px;opacity:0.6;">${t.icon}</span>
+          <div class="badge badge-${t.color}" id="badge-${t.key}">LIVE</div>
+        </div>
+        <div style="font-family:var(--mono);font-size:28px;font-weight:700;color:var(--vault-${t.color});line-height:1;" id="tele-val-${t.key}">0</div>
+        <div style="font-size:10px;color:var(--vault-muted);margin-top:4px;letter-spacing:0.1em;">${t.label}</div>
+        <div class="prog-bar" style="margin-top:10px;">
+          <div class="prog-fill" id="tele-bar-${t.key}" style="background:var(--vault-${t.color});width:0%;opacity:0.5;"></div>
+        </div>
+      </div>
+    `).join('');
+  }
+  telemetryDefs.forEach(t => {
+    const val = t.format(state);
+    const el = document.getElementById(`tele-val-${t.key}`);
+    if (el) el.textContent = val;
+    const bar = document.getElementById(`tele-bar-${t.key}`);
+    if (bar) {
+      const pct = t.key === 'nodes' ? (val/8)*100
+                : t.key === 'objects' ? (val/20)*100
+                : t.key === 'chunks' ? (val/200)*100
+                : t.key === 'replicas' ? (val/600)*100
+                : t.key === 'underReplicated' ? Math.min(100, val*10)
+                : t.key === 'corrupted' ? Math.min(100, val*15)
+                : t.key === 'repairQueue' ? Math.min(100, val*8)
+                : 40;
+      bar.style.width = pct + '%';
+    }
+  });
+}
+
+// ---- NODE MATRIX ----
+function renderNodes() {
+  const matrix = document.getElementById('node-matrix');
+  matrix.innerHTML = state.nodes.map(n => {
+    const healthColor = n.healthy ? 'var(--vault-green)' : 'var(--vault-red)';
+    const healthLabel = n.healthy ? 'ONLINE' : 'OFFLINE';
+    const badgeClass = n.healthy ? 'badge-green' : 'badge-red';
+    const chunkCount = state.chunks.filter(c => c.replicas[n.id] && c.replicas[n.id] !== 'absent').length;
+    return `
+    <div class="node-card${n.healthy ? '' : ' dead'}" style="padding:14px;" id="nodecard-${n.id}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:${healthColor};${n.healthy ? 'box-shadow:0 0 8px '+healthColor+';' : ''}" ${n.healthy ? 'class="pulse-dot"' : ''}></div>
+          <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--vault-text);">${n.id.toUpperCase()}</span>
+          <span class="badge ${badgeClass}" style="font-size:9px;">${healthLabel}</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" ${n.healthy ? 'checked' : ''} onchange="toggleNode('${n.id}', this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div style="display:flex;gap:16px;font-family:var(--mono);font-size:10px;color:var(--vault-muted);margin-bottom:10px;">
+        <span>:${n.port}</span>
+        <span>${chunkCount} chunks</span>
+        <span>${n.speed} MB/s</span>
+      </div>
+      <div style="margin-bottom:4px;display:flex;justify-content:space-between;font-size:10px;font-family:var(--mono);">
+        <span style="color:var(--vault-muted);">DISK UTIL</span>
+        <span style="color:${n.util > 75 ? 'var(--vault-amber)' : 'var(--vault-green)'};">${n.util}%</span>
+      </div>
+      <div class="prog-bar">
+        <div class="prog-fill" style="width:${n.util}%;background:${n.util > 75 ? 'linear-gradient(90deg,var(--vault-amber),var(--vault-amber2))' : 'linear-gradient(90deg,var(--vault-green),var(--vault-green2))'}"></div>
+      </div>
+    </div>
+    `;
+  }).join('');
+}
+
+function toggleNode(nodeId, healthy) {
+  const node = state.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+  node.healthy = healthy;
+  if (!healthy) {
+    // Mark all replicas on this node as missing
+    state.chunks.forEach(c => { if (c.replicas[nodeId]) c.replicas[nodeId] = 'missing'; });
+    addLog('ERROR', `NODE ${nodeId.toUpperCase()} OFFLINE — replica degradation detected`);
+    addLog('REPAIR', `Scan: ${state.chunks.filter(c=>c.replicas[nodeId]==='missing').length} chunks under-replicated`);
+  } else {
+    // Restore replicas
+    state.chunks.forEach(c => { if (c.replicas[nodeId] === 'missing') c.replicas[nodeId] = 'healthy'; });
+    addLog('HEALTH', `NODE ${nodeId.toUpperCase()} RESTORED — replica recovery complete`);
+  }
+  refresh();
+}
+
+function addNode() {
+  const id = `node-${state.nextNodeId}`;
+  state.nextNodeId++;
+  state.nodes.push({ id, host: `vault-${id}`, port: 8080 + state.nodes.length + 1, healthy: true, util: 0, chunks: 0, speed: 130 });
+  state.chunks.forEach(c => { c.replicas[id] = 'absent'; });
+  addLog('HEALTH', `NODE ${id.toUpperCase()} JOINED cluster — ready for rebalancing`);
+  refresh();
+}
+
+// ---- OBJECT EXPLORER ----
+function renderObjects() {
+  const list = document.getElementById('object-list');
+  list.innerHTML = state.objects.map(obj => {
+    const objChunks = state.chunks.filter(c => c.objId === obj.id);
+    const underRep = objChunks.filter(c => Object.values(c.replicas).filter(v => v !== 'absent' && v !== 'missing').length < 3).length;
+    const corrupted = objChunks.filter(c => Object.values(c.replicas).includes('corrupt')).length;
+    const statusColor = corrupted > 0 ? 'var(--vault-red)' : underRep > 0 ? 'var(--vault-amber)' : 'var(--vault-green)';
+    const statusLabel = corrupted > 0 ? 'CORRUPTED' : underRep > 0 ? 'DEGRADED' : 'AVAILABLE';
+    const statusBadge = corrupted > 0 ? 'badge-red' : underRep > 0 ? 'badge-amber' : 'badge-green';
+
+    // mini chunk grid
+    const miniChunks = objChunks.slice(0,20).map(c => {
+      const states = Object.values(c.replicas).filter(v => v !== 'absent');
+      const color = states.includes('corrupt') ? 'var(--vault-amber)'
+                  : states.includes('missing') ? 'var(--vault-red)'
+                  : 'var(--vault-green)';
+      return `<div class="chunk-cell" style="background:${color};opacity:0.7;" title="${c.chunkId}"></div>`;
+    }).join('');
+
+    return `
+    <div style="padding:12px;background:var(--vault-card2);border:1px solid var(--vault-border2);border-radius:6px;transition:border-color 0.2s;" onmouseover="this.style.borderColor='var(--vault-cyan2)'" onmouseout="this.style.borderColor='var(--vault-border2)'">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--vault-text);">${obj.name}</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--vault-muted);">${obj.size}</span>
+        </div>
+        <span class="badge ${statusBadge}">${statusLabel}</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;gap:2px;flex-wrap:wrap;max-width:220px;">${miniChunks}</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--vault-muted);text-align:right;">
+          <div>${obj.chunks} chunks</div>
+          <div style="font-size:9px;margin-top:2px;color:var(--vault-dim);">${obj.id.slice(0,10)}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function switchTab(tab) {
+  ['objects','chunks'].forEach(t => {
+    document.getElementById(`view-${t}`).style.display = t === tab ? '' : 'none';
+    document.getElementById(`tab-${t}`).className = 'tab-btn' + (t === tab ? ' active' : '');
+  });
+  if (tab === 'chunks') renderChunkTopology();
+}
+
+function renderChunkTopology() {
+  const container = document.getElementById('chunk-topology');
+  const sample = state.chunks.slice(0, 12);
+  container.innerHTML = sample.map(c => {
+    const obj = state.objects.find(o => o.id === c.objId);
+    return `
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--vault-border);font-family:var(--mono);font-size:10px;">
+      <span style="color:var(--vault-dim);min-width:24px;">#${c.index}</span>
+      <span style="color:var(--vault-muted);min-width:80px;overflow:hidden;text-overflow:ellipsis;">${obj ? obj.name : '?'}</span>
+      <div style="display:flex;gap:6px;">
+        ${state.nodes.map(n => {
+          const st = c.replicas[n.id] || 'absent';
+          const colors = { healthy:'var(--vault-green)', missing:'var(--vault-red)', corrupt:'var(--vault-amber)', absent:'var(--vault-dim)' };
+          return `<div class="tooltip-wrap"><div style="width:28px;padding:2px;text-align:center;border-radius:3px;background:${colors[st]}22;color:${colors[st]};border:1px solid ${colors[st]}44;font-size:9px;">${n.id.replace('node-','N')}</div><div class="tooltip-box">${n.id}: ${st.toUpperCase()}</div></div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ---- CHUNK MATRIX ----
+function renderChunkMatrix() {
+  const container = document.getElementById('chunk-matrix');
+  const sample = state.chunks.slice(0, 60);
+  const nodeIds = state.nodes.map(n => n.id);
+
+  const headerCells = ['<div style="min-width:140px;font-size:10px;color:var(--vault-muted);padding:4px;">CHUNK ID</div>',
+    ...nodeIds.map(id => `<div style="min-width:70px;text-align:center;font-size:10px;font-family:var(--mono);color:var(--vault-cyan);padding:4px;">${id.toUpperCase()}</div>`)
+  ].join('');
+
+  const rows = sample.map((c, i) => {
+    const obj = state.objects.find(o => o.id === c.objId);
+    const cells = nodeIds.map(nid => {
+      const st = c.replicas[nid] || 'absent';
+      const colors = { healthy:'#00ff8855', missing:'#ff3b5c55', corrupt:'#ffb02055', absent:'#1e2d3d' };
+      const borders = { healthy:'#00ff88', missing:'#ff3b5c', corrupt:'#ffb020', absent:'#1e2d3d' };
+      const icons = { healthy:'✓', missing:'✕', corrupt:'⚠', absent:'·' };
+      const textColors = { healthy:'var(--vault-green)', missing:'var(--vault-red)', corrupt:'var(--vault-amber)', absent:'var(--vault-dim)' };
+      return `<div style="min-width:70px;text-align:center;padding:4px;" class="tooltip-wrap">
+        <div style="margin:0 auto;width:28px;height:20px;border-radius:3px;background:${colors[st]};border:1px solid ${borders[st]}44;display:flex;align-items:center;justify-content:center;font-size:10px;color:${textColors[st]};">${icons[st]}</div>
+        <div class="tooltip-box">${nid}: ${st.toUpperCase()}</div>
+      </div>`;
+    }).join('');
+    return `
+    <div style="display:flex;align-items:center;border-bottom:1px solid rgba(30,45,61,0.5);" onmouseover="this.style.background='rgba(0,212,255,0.03)'" onmouseout="this.style.background='transparent'">
+      <div style="min-width:140px;padding:4px;font-family:var(--mono);font-size:9px;color:var(--vault-muted);overflow:hidden;text-overflow:ellipsis;">${obj ? obj.name : '?'} #${c.index}</div>
+      ${cells}
+    </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div style="overflow-x:auto;">
+      <div style="min-width:${140 + nodeIds.length * 70}px;">
+        <div style="display:flex;border-bottom:1px solid var(--vault-border2);background:rgba(0,0,0,0.2);">${headerCells}</div>
+        ${rows}
+        ${state.chunks.length > 60 ? `<div style="padding:8px 0;font-family:var(--mono);font-size:10px;color:var(--vault-muted);">... and ${state.chunks.length - 60} more chunks</div>` : ''}
+      </div>
+    </div>`;
+}
+
+// ---- EVENT LOG ----
+const LOG_COLORS = {
+  PUT:    { color:'var(--vault-cyan)',  prefix:'PUT   ' },
+  GET:    { color:'var(--vault-blue)',  prefix:'GET   ' },
+  REPAIR: { color:'var(--vault-green)', prefix:'REPAIR' },
+  ERROR:  { color:'var(--vault-red)',   prefix:'ERROR ' },
+  HEALTH: { color:'var(--vault-amber)', prefix:'HEALTH' },
+  INFO:   { color:'var(--vault-muted)', prefix:'INFO  ' },
+};
+
+function addLog(type, message) {
+  const entry = { type, message, ts: new Date().toISOString().slice(11,23) };
+  state.logEntries.unshift(entry);
+  if (state.logEntries.length > 200) state.logEntries.pop();
+  renderLog();
+}
+
+function renderLog() {
+  const container = document.getElementById('event-log');
+  const filter = state.logFilter;
+  const entries = filter === 'ALL' ? state.logEntries : state.logEntries.filter(e => e.type === filter);
+  container.innerHTML = entries.slice(0,80).map((e, i) => {
+    const { color, prefix } = LOG_COLORS[e.type] || LOG_COLORS.INFO;
+    return `<div class="${i === 0 ? 'log-entry' : ''}" style="display:flex;gap:8px;line-height:1.5;">
+      <span style="color:var(--vault-dim);min-width:90px;">${e.ts}</span>
+      <span style="color:${color};min-width:50px;">${prefix}</span>
+      <span style="color:var(--vault-muted);">${e.message}</span>
+    </div>`;
+  }).join('');
+}
+
+function clearLog() {
+  state.logEntries = [];
+  renderLog();
+}
+
+function toggleFilter(btn, filter) {
+  state.logFilter = filter;
+  document.querySelectorAll('[id^="filter-"]').forEach(b => b.className = 'tab-btn');
+  btn.className = 'tab-btn active';
+  renderLog();
+}
+
+// ---- FAULT DRILLS ----
+async function showProgress(steps) {
+  const panel = document.getElementById('drill-progress');
+  const bar = document.getElementById('drill-bar');
+  const status = document.getElementById('drill-status');
+  panel.style.display = 'block';
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    status.textContent = s.label;
+    bar.style.width = Math.round(((i+1)/steps.length)*100) + '%';
+    if (s.action) s.action();
+    refresh();
+    await sleep(s.delay || 600);
+  }
+  await sleep(800);
+  panel.style.display = 'none';
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function drillNodeFailure() {
+  if (state.drillRunning) return;
+  state.drillRunning = true;
+  const healthy = state.nodes.filter(n => n.healthy);
+  if (!healthy.length) { addLog('ERROR','No healthy nodes to kill'); state.drillRunning = false; return; }
+  const victim = healthy[Math.floor(Math.random() * healthy.length)];
+  const affected = state.chunks.filter(c => c.replicas[victim.id] === 'healthy').length;
+  await showProgress([
+    { label: `Sending SIGKILL to ${victim.id}...`, delay: 500 },
+    { label: `Marking ${victim.id} OFFLINE`, delay: 400, action: () => {
+      victim.healthy = false;
+      state.chunks.forEach(c => { if (c.replicas[victim.id] === 'healthy') c.replicas[victim.id] = 'missing'; });
+    }},
+    { label: `Health check timeout × 3`, delay: 700 },
+    { label: `Detected ${affected} under-replicated chunks`, delay: 500, action: () => {
+      addLog('ERROR', `${victim.id.toUpperCase()} KILLED — ${affected} chunks under-replicated`);
+      addLog('REPAIR', `Repair controller queuing ${affected} chunks for restoration`);
+    }},
+  ]);
+  state.drillRunning = false;
+  refresh();
+}
+
+async function drillCorruption() {
+  if (state.drillRunning) return;
+  state.drillRunning = true;
+  const healthy = state.nodes.filter(n => n.healthy);
+  if (!healthy.length) { state.drillRunning = false; return; }
+  const node = healthy[Math.floor(Math.random() * healthy.length)];
+  const candidates = state.chunks.filter(c => c.replicas[node.id] === 'healthy');
+  if (!candidates.length) { state.drillRunning = false; return; }
+  const count = Math.min(3, Math.ceil(candidates.length * 0.15));
+  const victims = candidates.sort(() => Math.random()-0.5).slice(0, count);
+  await showProgress([
+    { label: 'Locating target chunk file...', delay: 400 },
+    { label: `Flipping bytes on ${node.id}`, delay: 500, action: () => {
+      victims.forEach(c => { c.replicas[node.id] = 'corrupt'; });
+    }},
+    { label: 'SHA-256 checksum mismatch detected', delay: 600, action: () => {
+      addLog('ERROR', `CORRUPT — ${count} chunk(s) on ${node.id}: checksum mismatch`);
+      addLog('GET', `Failover to healthy replica on alternate node`);
+    }},
+    { label: `Served ${count} chunks from healthy replicas`, delay: 400, action: () => {
+      addLog('REPAIR', `Scrubber queued ${count} corrupted replicas for repair`);
+    }},
+  ]);
+  state.drillRunning = false;
+  refresh();
+}
+
+async function drillRepair() {
+  if (state.drillRunning) return;
+  state.drillRunning = true;
+  const broken = state.chunks.filter(c =>
+    Object.values(c.replicas).some(v => v === 'missing' || v === 'corrupt')
+  );
+  if (!broken.length) {
+    addLog('REPAIR', 'Cluster healthy — no repair needed');
+    state.drillRunning = false;
+    return;
+  }
+  addLog('REPAIR', `Repair controller scanning ${state.chunks.length} chunks...`);
+  const steps = [
+    { label: `Found ${broken.length} chunks needing repair`, delay: 500 },
+    ...broken.slice(0,6).map((c, i) => ({
+      label: `Repairing ${c.chunkId.slice(-12)}... (${i+1}/${Math.min(broken.length,6)})`,
+      delay: 400,
+      action: () => {
+        const healthyNode = state.nodes.find(n => n.healthy);
+        if (!healthyNode) return;
+        Object.keys(c.replicas).forEach(nid => {
+          if (c.replicas[nid] === 'missing' || c.replicas[nid] === 'corrupt') {
+            if (state.nodes.find(n => n.id === nid && n.healthy)) {
+              c.replicas[nid] = 'healthy';
+            }
+          }
+        });
+        addLog('REPAIR', `✓ ${c.chunkId.slice(-12)} restored · checksum verified`);
+      }
+    })),
+    { label: `Repair complete — cluster restored to RF=3`, delay: 300, action: () => {
+      // Repair remaining
+      broken.forEach(c => {
+        Object.keys(c.replicas).forEach(nid => {
+          if (c.replicas[nid] === 'missing' || c.replicas[nid] === 'corrupt') {
+            if (state.nodes.find(n => n.id === nid && n.healthy)) c.replicas[nid] = 'healthy';
+          }
+        });
+      });
+      addLog('HEALTH', `All replicas healthy · Replication factor RF=3 maintained`);
+    }},
+  ];
+  await showProgress(steps);
+  state.drillRunning = false;
+  refresh();
+}
+
+async function drillRebalance() {
+  if (state.drillRunning) return;
+  state.drillRunning = true;
+  const newNode = state.nodes.find(n => state.chunks.filter(c => c.replicas[n.id] !== 'absent').length === 0);
+  if (!newNode) {
+    addLog('INFO', 'No new nodes available — add a node first');
+    state.drillRunning = false;
+    return;
+  }
+  const overloaded = [...state.nodes].filter(n => n.id !== newNode.id && n.healthy).sort((a,b) => b.util - a.util);
+  const toMove = state.chunks.filter(c => overloaded[0] && c.replicas[overloaded[0].id] === 'healthy').slice(0,5);
+  await showProgress([
+    { label: `Detecting node utilization imbalance...`, delay: 400 },
+    { label: `${newNode.id} identified as target (0% util)`, delay: 400 },
+    { label: `Moving chunks from ${overloaded[0]?.id || 'node-1'} → ${newNode.id}`, delay: 600, action: () => {
+      toMove.forEach(c => {
+        c.replicas[newNode.id] = 'healthy';
+        addLog('INFO', `Chunk ${c.chunkId.slice(-10)} → ${newNode.id}`);
+      });
+      newNode.util = 18;
+      if (overloaded[0]) overloaded[0].util = Math.max(0, overloaded[0].util - 14);
+    }},
+    { label: 'Verifying checksums on new node...', delay: 500 },
+    { label: 'Rebalance complete', delay: 300, action: () => {
+      addLog('HEALTH', `Rebalance complete — ${toMove.length} chunks migrated to ${newNode.id}`);
+    }},
+  ]);
+  state.drillRunning = false;
+  refresh();
+}
+
+async function drillChaos() {
+  if (state.drillRunning) return;
+  addLog('ERROR', '⚡ CHAOS MODE ACTIVATED ⚡');
+  await drillNodeFailure();
+  await sleep(400);
+  await drillCorruption();
+  await sleep(400);
+  addLog('REPAIR', '--- Initiating auto-recovery sequence ---');
+  await drillRepair();
+}
+
+// ---- SPARKLINE CHARTS ----
+function drawSparkline(canvasId, data, color, fillColor, label) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth || canvas.parentElement.offsetWidth - 32;
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  if (data.length < 2) return;
+  const max = Math.max(...data, 1);
+  const min = Math.min(...data, 0);
+  const range = max - min || 1;
+  const pts = data.map((v,i) => ({ x: (i / (data.length-1)) * W, y: H - ((v-min)/range) * (H-10) - 5 }));
+
+  // Fill
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, H);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, H);
+  ctx.closePath();
+  ctx.fillStyle = fillColor;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  pts.forEach((p,i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Latest value
+  const latest = data[data.length-1];
+  ctx.fillStyle = color;
+  ctx.font = '10px JetBrains Mono, monospace';
+  ctx.fillText(label.replace('{v}', Math.round(latest)), 4, 12);
+
+  // Dot
+  const last = pts[pts.length-1];
+  ctx.beginPath();
+  ctx.arc(last.x, last.y, 3, 0, Math.PI*2);
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+function updateCharts() {
+  const tp = Math.round(state.nodes.filter(n=>n.healthy).reduce((s,n)=>s+n.speed,0) + (Math.random()-0.5)*40);
+  const healthy = state.chunks.filter(c=>Object.values(c.replicas).every(v=>v!=='missing'&&v!=='corrupt'||v==='absent')).length;
+  const repair = state.chunks.filter(c=>Object.values(c.replicas).some(v=>v==='missing'||v==='corrupt')).length;
+  state.throughputHistory.push(Math.max(0, tp));
+  state.healthHistory.push(healthy);
+  state.repairHistory.push(repair);
+  [state.throughputHistory, state.healthHistory, state.repairHistory].forEach(h => { if (h.length > 40) h.shift(); });
+  drawSparkline('chart-throughput', state.throughputHistory, '#00d4ff', 'rgba(0,212,255,0.08)', '{v} MB/s');
+  drawSparkline('chart-health', state.healthHistory, '#00ff88', 'rgba(0,255,136,0.08)', '{v} healthy');
+  drawSparkline('chart-repair', state.repairHistory, '#ffb020', 'rgba(255,176,32,0.08)', '{v} queued');
+}
+
+// ---- REFRESH ALL ----
+function refresh() {
+  renderTelemetry();
+  renderNodes();
+  renderObjects();
+  renderChunkMatrix();
+  if (document.getElementById('view-chunks').style.display !== 'none') renderChunkTopology();
+}
+
+// ---- INIT ----
+function init() {
+  buildChunks();
+  refresh();
+  // Startup logs
+  addLog('HEALTH', 'VAULT cluster bootstrapping...');
+  addLog('HEALTH', 'vault-node-1 ONLINE — health check OK');
+  addLog('HEALTH', 'vault-node-2 ONLINE — health check OK');
+  addLog('HEALTH', 'vault-node-3 ONLINE — health check OK');
+  addLog('HEALTH', 'Metadata store initialized — in-memory mode');
+  addLog('PUT', 'video.mp4 (1.4 GB) → 22 chunks × RF=3 = 66 replicas — W=2 quorum achieved');
+  addLog('PUT', 'backup.tar (820 MB) → 13 chunks × RF=3 = 39 replicas — AVAILABLE');
+  addLog('PUT', 'dataset.csv (280 MB) → 5 chunks × RF=3 = 15 replicas — AVAILABLE');
+  addLog('PUT', 'model.bin (3.2 GB) → 51 chunks × RF=3 = 153 replicas — AVAILABLE');
+  addLog('GET', 'video.mp4 → chunk[0..21] — SHA-256 ✓ — served in 142ms');
+
+  // Simulate ambient traffic
+  const events = [
+    () => addLog('GET', `${state.objects[Math.floor(Math.random()*state.objects.length)].name} — chunk read — checksum ✓`),
+    () => addLog('HEALTH', `Health probe — ${state.nodes.filter(n=>n.healthy).length}/${state.nodes.length} nodes OK`),
+    () => addLog('REPAIR', `Scrubber scan complete — ${state.chunks.filter(c=>Object.values(c.replicas).some(v=>v==='missing'||v==='corrupt')).length} chunks need attention`),
+  ];
+  setInterval(() => {
+    if (Math.random() > 0.3) events[Math.floor(Math.random()*events.length)]();
+    // Simulate slight util drift
+    state.nodes.forEach(n => { if (n.healthy) n.util = Math.max(5, Math.min(95, n.util + (Math.random()-0.5)*3)); });
+    updateCharts();
+    renderTelemetry();
+    renderNodes();
+  }, 2000);
+}
+
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
